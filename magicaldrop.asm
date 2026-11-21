@@ -25,6 +25,9 @@ ADDR_DSPL:
 ADDR_KBRD:
     .word 0xffff0000
 
+BUBBLE_COLOURS:
+    .word 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00
+
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -35,6 +38,9 @@ ADDR_KBRD:
 	.text
 	.globl main
     
+
+    # Run the game.
+main:
 li $a0, 3          # x
 li $a1, 10           # y
 li $a2, 18          # width
@@ -53,15 +59,25 @@ li $a3, 28          # height
 li $t5, 0x00000000  # grey
 jal draw_rect
 
+li $s2, 12   # y of the first row
+li $s3, 6    # rows left to draw
+draw_starting_rows:
+beq $s3, $zero, starting_rows_done
 
-li $v0, 10          # exit after drawing
+li $a0, 5  #starting x
+add $a1, $s2, $zero  #starting y
+li $a2, 7   #number of bubbles starting 
+jal draw_random_bubble_row
+
+addi $s2, $s2, 2  #move to next row
+addi $s3, $s3, -1 
+j draw_starting_rows
+
+starting_rows_done:
+
+li $v0, 10
 syscall
-
-
-
-    # Run the game.
-main:
-    # Initialize the game
+    
 
 game_loop:
     # 1a. Check if key has been pressed
@@ -124,3 +140,41 @@ addi $t8, $t8, 4                    # move to the next pixel in the line.
 j line_loop_start                   # jump to the start of the line-drawing loop
 line_loop_end:
 jr $ra                      # return to the calling program
+
+
+
+draw_random_bubble_row: 
+add $t9, $ra, $zero       # save initial position
+add $t4, $a0, $zero       # current x
+add $t6, $a1, $zero       # current y
+add $t7, $a2, $zero       # bubbles left to draw 
+
+random_bubble_loop: 
+beq $t7, $zero, random_bubble_row_done
+
+li $v0, 42
+li $a0, 0   # random generator ID
+li $a1, 4   # pick index between 0 to 3
+syscall
+
+sll $t0, $a0, 2   # color index * 4 bytes
+la $t1, BUBBLE_COLOURS
+add $t1, $t1, $t0
+lw $t5, 0($t1)   # store the color in the t5 register for pixel
+
+add $a0, $t4, $zero  # bubble x
+add $a1, $t6, $zero  # bubble y
+li $a2, 2            # width
+li $a3, 2            # height
+jal draw_rect
+
+
+# move right by 1 bubble: 
+addi $t4, $t4, 2  
+addi $t7, $t7, -1  
+
+j random_bubble_loop
+
+random_bubble_row_done: 
+jr $t9
+
