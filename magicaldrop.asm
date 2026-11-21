@@ -74,6 +74,22 @@ addi $s3, $s3, -1
 j draw_starting_rows
 
 starting_rows_done:
+# Drawing Player Character Pixels
+# Drawing White Pixel 
+li $a0, 11          # x value
+li $a1, 42          # y value
+li $a2, 1           # width
+li $a3, 1           # height
+li $t5, 0x00ffffff
+jal draw_rect
+
+# Drawing Green Pixel
+li $a0, 11          # x value
+li $a1, 43          # y value
+li $a2, 1           # width
+li $a3, 2           # height
+li $t5, 0x0000ff00
+jal draw_rect
 
 li $v0, 10
 syscall
