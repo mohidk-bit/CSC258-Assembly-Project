@@ -35,10 +35,10 @@ ADDR_KBRD:
 	.text
 	.globl main
     
-li $a0, 15          # x
-li $a1, 3           # y
-li $a2, 33          # width
-li $a3, 54          # height
+li $a0, 3          # x
+li $a1, 10           # y
+li $a2, 18          # width
+li $a3, 32          # height
 li $t5, 0x00808080  # grey
 jal draw_rect
 
@@ -46,10 +46,10 @@ jal draw_rect
 li $v0, 10          # exit after drawing
 
 
-li $a0, 21          # x
-li $a1, 9           # y
-li $a2, 21          # width
-li $a3, 42          # height
+li $a0, 5          # x
+li $a1, 12           # y
+li $a2, 14          # width
+li $a3, 28          # height
 li $t5, 0x00000000  # grey
 jal draw_rect
 
