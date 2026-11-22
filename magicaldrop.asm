@@ -297,7 +297,7 @@ li $a0, 5                 # playfield left edge
 li $a1, 12                # playfield top edge
 li $a2, 7                 # seven new bubbles
 jal draw_random_bubble_row
-j wait_for_next_framed
+j check_bottom_row
 
 draw_rect:
 lw $t0, ADDR_DSPL          # $t0 = base address for display
@@ -321,6 +321,25 @@ j row_drawing_loop_start        # jump to the start of the loop
 
 row_drawing_loop_end:
 jr $ra                     # return to the calling program
+
+check_bottom_row:
+lw $t0, ADDR_DSPL
+addi $t0, $t0, 9748       # top-left pixel of row 13, column 0: (5, 38)
+li $t1, 7                 # cells to check
+
+
+# Try Finding a bubble in the bottom most row
+check_bottom_cell:
+beq $t1, $zero, wait_for_next_frame
+lw $t2, 0($t0)
+beq $t2, $zero, next_bottom_cell
+j quit_game             
+
+# Move right 
+next_bottom_cell:
+addi $t0, $t0, 8         
+addi $t1, $t1, -1
+j check_bottom_cell
 
 
 #
