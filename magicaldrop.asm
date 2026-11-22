@@ -28,10 +28,13 @@ ADDR_KBRD:
 BUBBLE_COLOURS:
     .word 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00
 
+
+
 ##############################################################################
 # Mutable Data
 ##############################################################################
-
+PLAYER_COL:
+    .word 3                # start in the middle column (keeps track of player positioning)
 ##############################################################################
 # Code
 ##############################################################################
@@ -91,20 +94,114 @@ li $a3, 2           # height
 li $t5, 0x0000ff00
 jal draw_rect
 
-li $v0, 10
-syscall
+
+
     
 
 game_loop:
-    # 1a. Check if key has been pressed
-    # 1b. Check which key has been pressed
-    # 2a. Check for collisions
-	# 2b. Update locations (capsules)
-	# 3. Draw the screen
-	# 4. Sleep
+lw $t0, ADDR_KBRD
+lw $t8, 0($t0)           # 0 means key is not ready
+beq $t8, $zero, wait_for_next_frame
 
-    # 5. Go back to Step 1
-    j game_loop
+
+lw $a0, 4($t0)           # read it 
+li $t1, 0x71             # loads a q
+beq $a0, $t1, quit_game  # check if input was "q"
+
+lw $a0, 4($t0)
+li $t1, 0x61             # loads "a"
+beq $a0, $t1, move_left  # check if the input was "a"
+
+lw $a0, 4($t0)
+li $t1, 0x64             # loads "d"
+beq $a0, $t1, move_right # check if the input was "d"
+
+
+wait_for_next_frame:
+li $v0, 32               # sleep for 16 milliseconds
+li $a0, 16
+syscall
+j game_loop
+
+
+quit_game:
+li $v0, 10
+syscall
+
+move_left: 
+lw $t2, PLAYER_COL   #load player's current column 
+beq $t2, $zero, wait_for_next_frame  #already at left edge
+
+sll $a0, $t2, 1   # x = column * 2 
+addi $a0, $a0, 5  # x = 5 + column * 2
+li $a1, 42        # y of the white tip
+li $a2, 1         # width
+li $a3, 3         # height to cover 3 pixels
+li $t5, 0x00000000 # color it black
+jal draw_rect
+
+# Reload Column since draw_rect changes t2
+la $t0, PLAYER_COL
+lw $t2, 0($t0)
+addi $t2, $t2, -1  #shift it to the left so column - 1
+sw $t2, 0($t0)     #update the PLAYER_COL
+
+# Draw White Tip 
+sll $a0, $t2, 1
+addi $a0, $a0, 5
+li $a1, 42
+li $a2, 1
+li $a3, 1
+li $t5, 0x00ffffff
+jal draw_rect
+
+# Draw Green Tip
+li $a1, 43
+li $a2, 1
+li $a3, 2
+li $t5, 0x0000ff00
+jal draw_rect
+
+j wait_for_next_frame
+
+
+move_right:
+lw $t2, PLAYER_COL   #load player's current column 
+li $t1, 6
+beq $t2, $t1, wait_for_next_frame  #already at right edge
+
+sll $a0, $t2, 1   # x = column * 2 
+addi $a0, $a0, 5  # x = 5 + column * 2
+li $a1, 42        # y of the white tip
+li $a2, 1         # width
+li $a3, 3         # height to cover 3 pixels
+li $t5, 0x00000000 # color it black
+jal draw_rect
+
+# Reload Column since draw_rect changes t2
+la $t0, PLAYER_COL
+lw $t2, 0($t0)
+addi $t2, $t2, 1  #shift it to the left so column + 1
+sw $t2, 0($t0)     #update the PLAYER_COL
+
+# Draw White Tip 
+sll $a0, $t2, 1
+addi $a0, $a0, 5
+li $a1, 42
+li $a2, 1
+li $a3, 1
+li $t5, 0x00ffffff
+jal draw_rect
+
+# Draw Green Tip
+li $a1, 43
+li $a2, 1
+li $a3, 2
+li $t5, 0x0000ff00
+jal draw_rect
+
+j wait_for_next_frame
+
 
 draw_rect:
 lw $t0, ADDR_DSPL          # $t0 = base address for display
@@ -125,8 +222,8 @@ addi $a3, $a3, -1               # reduce the height parameter by 1
 addi $a1, $a1, 1                # increase the Y coordinate by 1
 j row_drawing_loop_start        # jump to the start of the loop
 # end the row-drawing loop
+
 row_drawing_loop_end:
-#
 jr $ra                     # return to the calling program
 
 
