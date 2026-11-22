@@ -38,6 +38,8 @@ PLAYER_COL:
 
 HELD_COLOUR:  .word 0      # 0 means no colour held
 HELD_COUNT:   .word 0
+
+KEY_COUNT: .word 0         # Keeps track of pressed keys
 ##############################################################################
 # Code
 ##############################################################################
@@ -98,8 +100,6 @@ li $t5, 0x0000ff00
 jal draw_rect
 
 
-
-    
 
 game_loop:
 lw $t0, ADDR_KBRD
@@ -167,7 +167,7 @@ li $a3, 2
 li $t5, 0x0000ff00
 jal draw_rect
 
-j wait_for_next_frame
+j key_processed
 
 
 move_right:
@@ -205,7 +205,7 @@ li $a3, 2
 li $t5, 0x0000ff00
 jal draw_rect
 
-j wait_for_next_frame
+j key_processed
 
 grab_bubbles:
 lw $t0, ADDR_DSPL
@@ -221,7 +221,7 @@ beq $t4, $zero, skip_empty_row
 j check_held_colour
 
 skip_empty_row:
-beq $t2, $zero, wait_for_next_frame
+beq $t2, $zero, key_processed
 addi $t2, $t2, -1        # move up one 
 addi $t0, $t0, -512      # two bitmap rows, 256 bytes each
 j find_lowest_bubble
@@ -232,7 +232,7 @@ la $t6, HELD_COLOUR
 lw $t5, 0($t6)
 beq $t5, $zero, start_grab # Grab it if not already holding anything
 beq $t5, $t4, start_grab   # Grab if color already holding is same 
-j wait_for_next_frame      # Holding a different colour
+j key_processed      # Holding a different colour
 
 
 start_grab:
@@ -255,10 +255,49 @@ beq $t5, $t4, grab_one_bubble  # Keep looping until different color
 
 finish_grab:
 sw $t3, 0($t7)
+j key_processed
+
+key_processed:
+la $t0, KEY_COUNT
+lw $t1, 0($t0)
+addi $t1, $t1, 1
+sw $t1, 0($t0)
+
+li $t2, 10
+beq $t1, $t2, advance_rows
 j wait_for_next_frame
 
+advance_rows:
+sw $zero, 0($t0)          # reset count back to 0
 
+lw $t0, ADDR_DSPL
+addi $t0, $t0, 9492       # address of pixel (5, 37): 37 * 256 + 5 * 4
+li $t1, 26                # copy source pixel rows 37 through 12
 
+shift_pixel_row:
+beq $t1, $zero, draw_new_top_row
+add $t2, $t0, $zero       # start at x = 5 for this row
+li $t3, 14                # pixels across the playfield
+
+shift_pixel:
+beq $t3, $zero, shift_next_row
+lw $t4, 0($t2)            # read the original pixel
+sw $t4, 512($t2)          # write two pixel rows below
+addi $t2, $t2, 4          # move right one pixel
+addi $t3, $t3, -1
+j shift_pixel
+
+shift_next_row:
+addi $t0, $t0, -256       # move the source up one pixel row
+addi $t1, $t1, -1
+j shift_pixel_row
+
+draw_new_top_row:
+li $a0, 5                 # playfield left edge
+li $a1, 12                # playfield top edge
+li $a2, 7                 # seven new bubbles
+jal draw_random_bubble_row
+j wait_for_next_framed
 
 draw_rect:
 lw $t0, ADDR_DSPL          # $t0 = base address for display
@@ -347,4 +386,3 @@ j random_bubble_loop
 
 random_bubble_row_done: 
 jr $t9
-
