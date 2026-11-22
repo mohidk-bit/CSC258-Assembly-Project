@@ -35,6 +35,9 @@ BUBBLE_COLOURS:
 ##############################################################################
 PLAYER_COL:
     .word 3                # start in the middle column (keeps track of player positioning)
+
+HELD_COLOUR:  .word 0      # 0 means no colour held
+HELD_COUNT:   .word 0
 ##############################################################################
 # Code
 ##############################################################################
@@ -108,13 +111,15 @@ lw $a0, 4($t0)           # read it
 li $t1, 0x71             # loads a q
 beq $a0, $t1, quit_game  # check if input was "q"
 
-lw $a0, 4($t0)
+
 li $t1, 0x61             # loads "a"
 beq $a0, $t1, move_left  # check if the input was "a"
 
-lw $a0, 4($t0)
 li $t1, 0x64             # loads "d"
 beq $a0, $t1, move_right # check if the input was "d"
+
+li $t1, 0x73             # loads "s"
+beq $a0, $t1, grab_bubbles # check if the input was "s"
 
 
 wait_for_next_frame:
@@ -201,6 +206,58 @@ li $t5, 0x0000ff00
 jal draw_rect
 
 j wait_for_next_frame
+
+grab_bubbles:
+lw $t0, ADDR_DSPL
+lw $t1, PLAYER_COL
+sll $t1, $t1, 3          # 8 bytes per bubble column
+addi $t0, $t0, 9748      # offset of pixel (5, 38)
+add $t0, $t0, $t1        # move to desired column
+li $t2, 13               # current board row
+
+find_lowest_bubble:
+lw $t4, 0($t0)           # read the current cell color
+beq $t4, $zero, skip_empty_row
+j check_held_colour
+
+skip_empty_row:
+beq $t2, $zero, wait_for_next_frame
+addi $t2, $t2, -1        # move up one 
+addi $t0, $t0, -512      # two bitmap rows, 256 bytes each
+j find_lowest_bubble
+
+
+check_held_colour:
+la $t6, HELD_COLOUR
+lw $t5, 0($t6)
+beq $t5, $zero, start_grab # Grab it if not already holding anything
+beq $t5, $t4, start_grab   # Grab if color already holding is same 
+j wait_for_next_frame      # Holding a different colour
+
+
+start_grab:
+sw $t4, 0($t6)
+la $t7, HELD_COUNT
+lw $t3, 0($t7)
+
+grab_one_bubble:
+sw $zero,   0($t0)       # clear all four pixels
+sw $zero,   4($t0)
+sw $zero, 256($t0)
+sw $zero, 260($t0)
+addi $t3, $t3, 1         # one more bubble held
+
+beq $t2, $zero, finish_grab
+addi $t2, $t2, -1
+addi $t0, $t0, -512
+lw $t5, 0($t0)
+beq $t5, $t4, grab_one_bubble  # Keep looping until different color
+
+finish_grab:
+sw $t3, 0($t7)
+j wait_for_next_frame
+
+
 
 
 draw_rect:
