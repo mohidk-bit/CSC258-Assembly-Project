@@ -121,6 +121,9 @@ beq $a0, $t1, move_right # check if the input was "d"
 li $t1, 0x73             # loads "s"
 beq $a0, $t1, grab_bubbles # check if the input was "s"
 
+li $t1, 0x77             # loads "w"
+beq $a0, $t1, throw_bubbles # checks if the input was "w"
+
 
 wait_for_next_frame:
 li $v0, 32               # sleep for 16 milliseconds
@@ -235,6 +238,90 @@ beq $t5, $t4, start_grab   # Grab if color already holding is same
 j key_processed      # Holding a different colour
 
 
+throw_bubbles:
+la $t6, HELD_COUNT
+lw $t3, 0($t6)
+beq $t3, $zero, key_processed  # not holding anything, so count towards key pressed
+
+la $t7, HELD_COLOUR
+lw $t4, 0($t7)
+
+lw $t0, ADDR_DSPL
+lw $t1, PLAYER_COL
+sll $t1, $t1, 3       # 8 bytes per bubble column
+addi $t0, $t0, 9748   # row 13, col 0
+add $t0, $t0, $t1     # row 13 in player col 
+addi $t9, $t0, -6656  # row 0 in the same col: 13*512 up 
+
+li $t2, 0
+li $t8, 14            # total cells in the col
+
+find_throw_space:
+beq $t2, $t8, check_throw_space
+lw $t5, 0($t0)
+beq $t5, $zero, scan_throw_up
+j check_throw_space
+
+scan_throw_up:
+addi $t2, $t2, 1
+addi $t0, $t0, -512
+j find_throw_space
+
+check_throw_space:
+slt $t5, $t2, $t3              # 1 if empty cells 
+beq $t5, $zero, start_throw
+j key_processed                 # keep the bubbles in hand if they won't fit
+
+start_throw:
+addi $t0, $t0, 512             # first empty cell below the stack
+add $t1, $t0, $zero            # save the first thrown address
+add $t8, $t3, $zero            # start the match count with the held count
+
+throw_one_bubble:
+sw $t4,   0($t0)               # paint the four pixels of the bubble
+sw $t4,   4($t0)
+sw $t4, 256($t0)
+sw $t4, 260($t0)
+
+addi $t2, $t2, -1              # one fewer empty cell
+addi $t3, $t3, -1              # one fewer bubble to place
+beq $t3, $zero, finish_throw
+addi $t0, $t0, 512             # next bubble goes one row lower
+j throw_one_bubble
+
+finish_throw:
+sw $zero, 0($t6)               # clear HELD_COUNT
+sw $zero, 0($t7)               # clear HELD_COLOUR
+
+count_match_above:
+beq $t1, $t9, check_match_count # stop at top of col
+addi $t5, $t1, -512            # bubbles above address
+lw $t3, 0($t5)
+beq $t3, $t4, extend_match
+j check_match_count
+
+extend_match:
+add $t1, $t5, $zero            # new top of the matching run
+addi $t8, $t8, 1
+j count_match_above
+
+check_match_count:
+slti $t5, $t8, 3               # 1 if the run is shorter than 3
+beq $t5, $zero, clear_vertical_match
+beq $t2, $zero, quit_game      # a bubble remains in row 13
+j key_processed
+
+clear_vertical_match:
+sw $zero,   0($t1)
+sw $zero,   4($t1)
+sw $zero, 256($t1)
+sw $zero, 260($t1)
+
+addi $t8, $t8, -1
+beq $t8, $zero, key_processed
+addi $t1, $t1, 512             # clear the next bubble down
+j clear_vertical_match
+
 start_grab:
 sw $t4, 0($t6)
 la $t7, HELD_COUNT
@@ -342,6 +429,7 @@ addi $t1, $t1, -1
 j check_bottom_cell
 
 
+
 #
 # The line drawing function
 #
@@ -405,3 +493,4 @@ j random_bubble_loop
 
 random_bubble_row_done: 
 jr $t9
+
