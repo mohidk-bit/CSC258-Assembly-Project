@@ -27,7 +27,8 @@ ADDR_KBRD:
 
 BUBBLE_COLOURS:
     .word 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00
-
+ROW_INTERVAL:   .word 188   # ticks between new row
+ROW_TICKS_LEFT: .word 188   # current tick count
 
 
 ##############################################################################
@@ -129,6 +130,13 @@ wait_for_next_frame:
 li $v0, 32               # sleep for 16 milliseconds
 li $a0, 16
 syscall
+
+la $t0, ROW_TICKS_LEFT
+lw $t1, 0($t0)
+addi $t1, $t1, -1  # one tick done
+sw $t1, 0($t0)
+
+beq $t1, $zero, advance_rows
 j game_loop
 
 
@@ -345,17 +353,20 @@ sw $t3, 0($t7)
 j key_processed
 
 key_processed:
-la $t0, KEY_COUNT
-lw $t1, 0($t0)
-addi $t1, $t1, 1
-sw $t1, 0($t0)
+# la $t0, KEY_COUNT
+# lw $t1, 0($t0)
+# addi $t1, $t1, 1
+# sw $t1, 0($t0)
 
-li $t2, 10
-beq $t1, $t2, advance_rows
+# li $t2, 10
+# beq $t1, $t2, advance_rows
 j wait_for_next_frame
 
 advance_rows:
-sw $zero, 0($t0)          # reset count back to 0
+# sw $zero, 0($t0)          # reset count back to 0
+lw $t1, ROW_INTERVAL
+la $t0, ROW_TICKS_LEFT
+sw $t1, 0($t0)
 
 lw $t0, ADDR_DSPL
 addi $t0, $t0, 9492       # address of pixel (5, 37): 37 * 256 + 5 * 4
