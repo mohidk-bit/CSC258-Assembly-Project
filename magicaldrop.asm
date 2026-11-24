@@ -30,6 +30,14 @@ BUBBLE_COLOURS:
 ROW_INTERVAL:   .word 188   # ticks between new row
 ROW_TICKS_LEFT: .word 188   # current tick count
 
+GAME_OVER_TEXT:
+    .asciiz "XXX..X..X.X.XXX.....XXX.X.X.XXX.XX.\nX...X.X.XXX.X.......X.X.X.X.X...X.X\nX.X.XXX.XXX.XX......X.X.X.X.XX..XX.\nX.X.X.X.X.X.X.......X.X.X.X.X...X.X\nXXX.X.X.X.X.XXX.....XXX..X..XXX.X.X"
+
+RETRY_TEXT:
+    .asciiz "XX..........XX..XXX.XXX.XX..X.X\nX.X..X......X.X.X....X..X.X.X.X\nXX..........XX..XX...X..XX...X.\nX.X..X......X.X.X....X..X.X..X.\nX.X.........X.X.XXX..X..X.X..X."
+
+QUIT_TEXT:
+    .asciiz "XXX.........XXX.X.X.XXX.XXX\nX.X..X......X.X.X.X..X...X.\nX.X.........X.X.X.X..X...X.\nXXX..X......XXX.X.X..X...X.\n..X...........X.XXX.XXX..X."
 
 ##############################################################################
 # Mutable Data
@@ -364,7 +372,7 @@ j count_match_above
 check_match_count:
 slti $t5, $t8, 3               # 1 if the run is shorter than 3
 beq $t5, $zero, clear_vertical_match
-beq $t2, $zero, quit_game      # a bubble remains in row 13
+beq $t2, $zero, game_over      # a bubble remains in row 13
 j key_processed
 
 clear_vertical_match:
@@ -479,7 +487,7 @@ check_bottom_cell:
 beq $t1, $zero, wait_for_next_frame
 lw $t2, 0($t0)
 beq $t2, $zero, next_bottom_cell
-j quit_game             
+j game_over             
 
 # Move right 
 next_bottom_cell:
@@ -552,4 +560,96 @@ j random_bubble_loop
 
 random_bubble_row_done: 
 jr $t9
+
+
+game_over: 
+jal clear_bitmap
+
+li $a0, 14  # x position
+li $a1, 23  # y position
+la $a2, GAME_OVER_TEXT
+jal draw_bitmap_text
+
+li $a0, 16  # x position
+li $a1, 34  # y position
+la $a2, RETRY_TEXT
+jal draw_bitmap_text
+
+li $a0, 18  # x position
+li $a1, 42  # y position
+la $a2, QUIT_TEXT
+jal draw_bitmap_text
+
+game_over_wait:
+lw $t0, ADDR_KBRD
+lw $t1, 0($t0)  # Check if anything is input
+beq $t1, $zero, game_over_idle
+
+lw $t1, 4($t0)   # read key
+li $t2, 0x72     # checks for "r"
+beq $t1, $t2, retry_game
+li $t2, 0x71     # checks for "q"
+beq $t1, $t2, quit_game
+
+game_over_idle:
+li $v0, 32
+li $a0, 16
+syscall #waits 16 ms before checking again
+
+j game_over_wait
+
+retry_game:
+li $t0, 3
+sw $t0, PLAYER_COL
+sw $zero, HELD_COUNT
+sw $zero, HELD_COLOUR
+
+lw $t0, ROW_INTERVAL
+sw $t0, ROW_TICKS_LEFT   # Start with full countdown
+
+jal clear_bitmap
+j start_game
+
+
+clear_bitmap:
+li $a0, 0          # x
+li $a1, 0          # y
+li $a2, 64         # width
+li $a3, 64         # height
+li $t5, 0          # black
+j draw_rect
+
+draw_bitmap_text:
+lw $t1, ADDR_DSPL
+sll $t2, $a0, 2             # x * 4 bytes
+add $t1, $t1, $t2
+sll $t2, $a1, 8             # y * 256 bytes
+add $t1, $t1, $t2           # $t1 = start of current bitmap row
+
+add $t2, $t1, $zero         # $t2 = current pixel address
+add $t0, $a2, $zero         # $t0 = current character address
+li $t4, 10                  # Newline character
+li $t5, 0x00ffffff          # White color
+li $t6, 0x2e                # Period character
+
+bitmap_text_loop:
+lbu $t3, 0($t0)
+beq $t3, $zero, bitmap_text_done
+addi $t0, $t0, 1           # Advance to the next character
+
+beq $t3, $t4, bitmap_text_next_row
+beq $t3, $t6, bitmap_text_next_pixel
+sw $t5, 0($t2)             # Paint the X white
+
+bitmap_text_next_pixel:
+addi $t2, $t2, 4
+j bitmap_text_loop
+
+bitmap_text_next_row:
+addi $t1, $t1, 256
+add $t2, $t1, $zero         # Return to the starting x
+j bitmap_text_loop
+
+bitmap_text_done:
+jr $ra
 
