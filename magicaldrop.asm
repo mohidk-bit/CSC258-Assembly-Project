@@ -172,6 +172,12 @@ beq $t8, $zero, wait_for_next_frame
 
 
 lw $a0, 4($t0)           # read it 
+
+# Erase Before
+li $t5, 0
+jal paint_aim_guide
+
+
 li $t1, 0x71             # loads a q
 beq $a0, $t1, quit_game  # check if input was "q"
 
@@ -203,6 +209,13 @@ addi $t1, $t1, -1  # one tick done
 sw $t1, 0($t0)
 
 beq $t1, $zero, advance_rows
+andi $t2, $t1, 16
+li $t5, 0x00000000          # Black when off
+beq $t2, $zero, paint_aim_frame
+li $t5, 0x00ffffff          # White when on
+
+paint_aim_frame:
+jal paint_aim_guide
 j game_loop
 
 
@@ -429,6 +442,10 @@ key_processed:
 j wait_for_next_frame
 
 advance_rows:
+#Erase Before Advancing
+li $t5, 0
+jal paint_aim_guide
+  
 # sw $zero, 0($t0)          # reset count back to 0
 lw $t1, ROW_INTERVAL
 la $t0, ROW_TICKS_LEFT
@@ -693,4 +710,25 @@ li $a3, 5   # Message height
 li $t5, 0   # Black
 jal draw_rect
 j game_loop
+
+paint_aim_guide:
+lw $t0, ADDR_DSPL
+lw $t1, PLAYER_COL
+sll $t1, $t1, 3             # Column has 2 pixels so 8 bytes
+addi $t0, $t0, 9748         # Bottomleft cell at pixel (5, 38)
+add $t0, $t0, $t1           # Bottom cell in player col
+li $t2, 14                  # Number of cells in a col
+
+aim_guide_cell:
+lw $t3, 0($t0)              # top left pixel
+bne $t3, $zero, aim_guide_done
+sw $t5, 4($t0)              # Paint top right pixel
+
+addi $t2, $t2, -1
+beq $t2, $zero, aim_guide_done
+addi $t0, $t0, -512         # Move up one bubble 
+j aim_guide_cell
+
+aim_guide_done:
+jr $ra
 
