@@ -39,6 +39,9 @@ RETRY_TEXT:
 QUIT_TEXT:
     .asciiz "XXX.........XXX.X.X.XXX.XXX\nX.X..X......X.X.X.X..X...X.\nX.X.........X.X.X.X..X...X.\nXXX..X......XXX.X.X..X...X.\n..X...........X.XXX.XXX..X."
 
+PAUSED_TEXT:
+    .asciiz "XX...X..X.X..XX.XXX.XX.\nX.X.X.X.X.X.X...X...X.X\nXX..XXX.X.X..X..XX..X.X\nX...X.X.X.X...X.X...X.X\nX...X.X.XXX.XX..XXX.XX."
+
 ##############################################################################
 # Mutable Data
 ##############################################################################
@@ -180,6 +183,9 @@ beq $a0, $t1, grab_bubbles # check if the input was "s"
 
 li $t1, 0x77             # loads "w"
 beq $a0, $t1, throw_bubbles # checks if the input was "w"
+
+li $t1, 0x70             # loads "p"
+beq $a0, $t1, pause_game
 
 
 wait_for_next_frame:
@@ -652,4 +658,36 @@ j bitmap_text_loop
 
 bitmap_text_done:
 jr $ra
+
+
+pause_game:
+li $a0, 30
+li $a1, 25
+la $a2, PAUSED_TEXT
+jal draw_bitmap_text
+
+pause_wait:
+lw $t0, ADDR_KBRD
+lw $t1, 0($t0)
+beq $t1, $zero, pause_idle
+
+lw $t1, 4($t0)
+li $t2, 0x70
+beq $t1, $t2, resume_game
+
+pause_idle:
+li $v0, 32
+li $a0, 16
+syscall
+j pause_wait
+
+resume_game:
+# Remove "PAUSED" by painting black over it
+li $a0, 30                   
+li $a1, 25                  
+li $a2, 23  # Message width
+li $a3, 5   # Message height
+li $t5, 0   # Black
+jal draw_rect
+j game_loop
 
