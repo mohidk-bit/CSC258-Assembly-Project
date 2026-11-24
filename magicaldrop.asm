@@ -41,6 +41,10 @@ HELD_COLOUR:  .word 0      # 0 means no colour held
 HELD_COUNT:   .word 0
 
 KEY_COUNT: .word 0         # Keeps track of pressed keys
+
+DIFFICULTY_PROMPT:
+  .asciiz "Choose Difficulty: 1 - EASY, 2 - MEDIUM, 3 - HARD\n"
+
 ##############################################################################
 # Code
 ##############################################################################
@@ -50,6 +54,50 @@ KEY_COUNT: .word 0         # Keeps track of pressed keys
 
     # Run the game.
 main:
+li $v0, 4
+la $a0, DIFFICULTY_PROMPT
+syscall
+
+j choose_difficulty
+
+
+choose_difficulty: 
+# Check if anything is entered 
+lw $t0, ADDR_KBRD
+lw $t1, 0($t0)
+beq $t1, $zero, wait_for_choice
+
+# If something is entered:
+lw $a0, 4($t0)   # Read the key once
+
+li $t1, 0x31     # ASCII for '1'
+li $t2, 313      # Easy difficulty time
+beq $a0, $t1, set_difficulty 
+
+li $t1, 0x32     # ASCII for '1'
+li $t2, 188      # Easy difficulty time
+beq $a0, $t1, set_difficulty 
+
+li $t1, 0x33     # ASCII for '1'
+li $t2, 125      # Easy difficulty time
+beq $a0, $t1, set_difficulty
+
+wait_for_choice:
+li $v0, 32
+li $a0, 16
+syscall
+j choose_difficulty
+
+set_difficulty:
+la $t0, ROW_INTERVAL
+sw $t2, 0($t0)      # interval for subsequent rows
+
+la $t0, ROW_TICKS_LEFT  #countdown for first row
+
+j start_game
+
+
+start_game:
 li $a0, 3          # x
 li $a1, 10           # y
 li $a2, 18          # width
