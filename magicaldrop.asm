@@ -27,6 +27,7 @@ ADDR_KBRD:
 
 BUBBLE_COLOURS:
     .word 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00
+    .word 0x00ff8800, 0x00aa00ff  # Orange, purple
 ROW_INTERVAL:   .word 188   # ticks between new row
 ROW_TICKS_LEFT: .word 188   # current tick count
 
@@ -47,14 +48,17 @@ PAUSED_TEXT:
 ##############################################################################
 PLAYER_COL:
     .word 3                # start in the middle column (keeps track of player positioning)
-
 HELD_COLOUR:  .word 0      # 0 means no colour held
 HELD_COUNT:   .word 0
 
 KEY_COUNT: .word 0         # Keeps track of pressed keys
 
+ACTIVE_COLOUR_COUNT: .word 4
+
 DIFFICULTY_PROMPT:
   .asciiz "Choose Difficulty: 1 - EASY, 2 - MEDIUM, 3 - HARD\n"
+
+
 
 ##############################################################################
 # Code
@@ -62,7 +66,6 @@ DIFFICULTY_PROMPT:
 	.text
 	.globl main
     
-
     # Run the game.
 main:
 li $v0, 4
@@ -70,7 +73,6 @@ la $a0, DIFFICULTY_PROMPT
 syscall
 
 j choose_difficulty
-
 
 choose_difficulty: 
 # Check if anything is entered 
@@ -83,14 +85,17 @@ lw $a0, 4($t0)   # Read the key once
 
 li $t1, 0x31     # ASCII for '1'
 li $t2, 313      # Easy difficulty time
+li $t3, 4
 beq $a0, $t1, set_difficulty 
 
-li $t1, 0x32     # ASCII for '1'
-li $t2, 188      # Easy difficulty time
+li $t1, 0x32     # ASCII for '2'
+li $t2, 188      # Medium difficulty time
+li $t3, 5
 beq $a0, $t1, set_difficulty 
 
-li $t1, 0x33     # ASCII for '1'
-li $t2, 125      # Easy difficulty time
+li $t1, 0x33     # ASCII for '3'
+li $t2, 125      # Hard difficulty time
+li $t3, 6
 beq $a0, $t1, set_difficulty
 
 wait_for_choice:
@@ -104,21 +109,22 @@ la $t0, ROW_INTERVAL
 sw $t2, 0($t0)      # interval for subsequent rows
 
 la $t0, ROW_TICKS_LEFT  #countdown for first row
+sw $t2, 0($t0)
+
+la $t0, ACTIVE_COLOUR_COUNT
+sw $t3, 0($t0)
 
 j start_game
-
 
 start_game:
 li $a0, 3          # x
 li $a1, 10           # y
 li $a2, 18          # width
-li $a3, 32          # height
+li $a3, 32          # height1
 li $t5, 0x00808080  # grey
 jal draw_rect
 
-
 li $v0, 10          # exit after drawing
-
 
 li $a0, 5          # x
 li $a1, 12           # y
@@ -158,8 +164,6 @@ li $a2, 1           # width
 li $a3, 2           # height
 li $t5, 0x0000ff00
 jal draw_rect
-
-
 
 game_loop:
 lw $t0, ADDR_KBRD
@@ -528,7 +532,7 @@ sw $t5, 0($t8)                      # store a pixel in the current location in m
 addi $t8, $t8, 4                    # move to the next pixel in the line.
 j line_loop_start                   # jump to the start of the line-drawing loop
 line_loop_end:
-jr $ra                      # return to the calling program
+jr $ra                      # return to the calling pr1ogram
 
 
 
@@ -543,7 +547,7 @@ beq $t7, $zero, random_bubble_row_done
 
 li $v0, 42
 li $a0, 0   # random generator ID
-li $a1, 4   # pick index between 0 to 3
+lw $a1, ACTIVE_COLOUR_COUNT
 syscall
 
 sll $t0, $a0, 2   # color index * 4 bytes
@@ -658,7 +662,6 @@ j bitmap_text_loop
 
 bitmap_text_done:
 jr $ra
-
 
 pause_game:
 li $a0, 30
